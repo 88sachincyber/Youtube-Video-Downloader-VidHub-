@@ -1,0 +1,123 @@
+from tkinter import *
+from tkinter import messagebox
+from tkinter import ttk
+from pytube import YouTube
+import threading
+
+def download_media():
+    global download_paused
+
+    try:
+        change_progress_bar_color("#00ff00")  # Set progress bar color to green when download starts
+
+        url = link.get()
+        resolution = resolution_var.get()
+
+        yt = YouTube(url)
+
+        if resolution == 'Audio Only':
+            stream = yt.streams.filter(only_audio=True).first()
+        else:
+            stream = yt.streams.filter(res=resolution).first()
+
+        stream.download()
+        messagebox.showinfo("Success", f"{resolution} Downloaded Successfully!")
+
+    except Exception as e:
+        if str(e).startswith("KeyboardInterrupt"):
+            download_paused = True
+            messagebox.showinfo("Info", "Download paused. Click 'Resume' to continue.")
+        else:
+            error_message = f"An error occurred: {str(e)}"
+            messagebox.showerror("Error", error_message)
+            change_progress_bar_color("#ff0000")  # Set progress bar color to red when there's an error
+            root.after(10, lambda p=0: set_progress(p))
+
+    finally:
+        set_pause_resume_visibility(False)
+
+def start_download():
+    global download_paused
+    download_paused = False
+    set_pause_resume_visibility(True)
+    download_thread = threading.Thread(target=download_media)
+    download_thread.start()
+
+def pause_download():
+    global download_paused
+    if not download_paused:
+        download_paused = True
+        messagebox.showinfo("Info", "Download paused.")
+        set_pause_resume_visibility(False)
+
+def resume_download():
+    global download_paused
+    if download_paused:
+        download_paused = False
+        download_thread = threading.Thread(target=download_media)
+        download_thread.start()
+        set_pause_resume_visibility(True)
+
+def set_pause_resume_visibility(visible):
+    if visible:
+        pause_button.pack(side=LEFT, padx=10)
+        resume_button.pack(side=LEFT)
+    else:
+        pause_button.pack_forget()
+        resume_button.pack_forget()
+
+def set_progress(value):
+    progress_bar['value'] = value
+
+def change_progress_bar_color(color):
+    progress_bar['style'] = 'TProgressbar'
+    s = ttk.Style()
+    s.configure("TProgressbar", troughcolor="#FFF", thickness=30, troughrelief="flat", troughborderwidth=0, background=color)
+
+# Main Application
+root = Tk()
+root.title("VidHub Downloader")
+root.geometry("600x400")
+root.configure(bg="#4e4e4e")
+
+# Add a welcome line at the top
+welcome_label = Label(root, text='Welcome to VidHub Downloader \nPaste your link and Enjoy offline', font='Arial 16 bold', pady=20, fg="white", bg="#4e4e4e")
+welcome_label.pack(side=TOP, fill=X)
+
+# Create buttons for selecting download source
+source_var = StringVar(root)
+source_var.set('YouTube')
+
+youtube_button = Radiobutton(root, text='YouTube', variable=source_var, value='YouTube', font='Arial 15 bold', bg='#12ffd3', padx=2)
+youtube_button.pack(side=TOP, padx=5, pady=10)
+
+# Common input fields
+link_label = Label(root, text='Enter Link:', font='Arial 15 bold', bg="#4e4e4e")
+link_label.pack(pady=30, side=TOP, fill=X)
+
+link = StringVar()
+link_entry = Entry(root, width=70, textvariable=link, fg="#00ed00")
+link_entry.pack()
+
+resolution_var = StringVar(root)
+resolution_var.set('Audio Only')
+resolution_label = Label(root, text='Select Resolution:', font='Arial 12')
+resolution_label.pack(pady=20)
+
+resolutions = ['Audio Only', 'Highest', '720p', '480p', '360p']
+resolution_dropdown = OptionMenu(root, resolution_var, *resolutions)
+resolution_dropdown.pack()
+
+button_frame = Frame(root, bg="#4e4e4e")
+button_frame.pack(side=BOTTOM, pady=10)
+
+download_button = Button(button_frame, text='DOWNLOAD', font='Arial 15 bold', bg='#12ffd3', padx=2, command=start_download)
+download_button.pack(side=TOP)
+
+pause_button = Button(button_frame, text='PAUSE', font='Arial 15 bold', bg='#ffcc00', padx=2, command=pause_download)
+resume_button = Button(button_frame, text='RESUME', font='Arial 15 bold', bg='#00cc00', padx=2, command=resume_download)
+
+progress_bar = ttk.Progressbar(button_frame, orient='horizontal', mode='determinate', length=300)
+progress_bar.pack(side=LEFT, pady=80)
+
+root.mainloop()
